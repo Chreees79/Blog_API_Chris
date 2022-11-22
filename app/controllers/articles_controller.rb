@@ -1,12 +1,18 @@
 class ArticlesController < ApplicationController
-  before_action :set_article, only: %i[ show update destroy ]
+  before_action :authenticate_user!, only: %i[new create edit update]
+  before_action :set_article, only: %i[show update destroy ]
 
   # GET /articles
   def index
     @articles = Article.all
-
-    render json: @articles
+    article_to_render = []
+    @articles.each do |article|
+      if !article.private || article.user == current_user
+        article_to_render << article
+    end
   end
+  render json: article_to_render
+end
 
   # GET /articles/1
   def show
@@ -16,6 +22,7 @@ class ArticlesController < ApplicationController
   # POST /articles
   def create
     @article = Article.new(article_params)
+    @article.user = current_user
 
     if @article.save
       render json: @article, status: :created, location: @article
@@ -26,16 +33,20 @@ class ArticlesController < ApplicationController
 
   # PATCH/PUT /articles/1
   def update
-    if @article.update(article_params)
-      render json: @article
-    else
-      render json: @article.errors, status: :unprocessable_entity
+    if @article.user == current_user
+      if @article.update(article_params)
+        render json: @article
+      else
+        render json: @article.errors, status: :unprocessable_entity
+      end
     end
   end
 
   # DELETE /articles/1
   def destroy
-    @article.destroy
+    if @article.user == current_user
+      @article.destroy
+    end
   end
 
   private
@@ -46,6 +57,6 @@ class ArticlesController < ApplicationController
 
     # Only allow a list of trusted parameters through.
     def article_params
-      params.require(:article).permit(:title, :content, :user_id)
+      params.require(:article).permit(:title, :content, :private, :user_id)
     end
 end
